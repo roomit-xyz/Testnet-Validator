@@ -1,0 +1,5 @@
+#!/usr/bin/env
+NODE_TYPE=light
+USER_IMAGES=light
+WALLET_NAME=roomit-celestia-light
+KEYRING=test

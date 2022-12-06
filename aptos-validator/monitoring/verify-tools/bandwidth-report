@@ -1,0 +1,11 @@
+#!/bin/bash
+
+
+if [ `command -v vnstats | echo $?` == 1 ]
+then
+   sudo apt install vnstat
+fi
+
+Bandwidth=`vnstat -d -i eth0 | grep estimated | awk -F"|" '{print $3}'| sed "s/^....//"`
+
+/usr/local/bin/telegram-send "Bandwidth `hostname` : ${Bandwidth} / Days"

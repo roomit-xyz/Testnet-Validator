@@ -1,0 +1,14 @@
+#!/usr/bin/env
+
+### APTOS ###
+export BUILD="testnet"
+export WORKSPACE="${HOME}/APTOS/projects/${BUILD}"
+export DNSNAME="cikuray.roomit.xyz"
+export NODENAME="RoomIT-dev"
+
+### NHC ####
+export CONFYAML="validator"
+export CONTAINERNAME_NHC="roomit-aptos-checker"
+export CONFYAMLPRETTY="RoomIT Aptos Nodes"
+export KINDNODE="validator" #validator or fullnode
+export CHAINID=43

@@ -1,0 +1,14 @@
+[Unit]
+Description=aptos-validator container
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=simple
+Restart=always
+ExecStart=/usr/bin/docker start -a  RoomIT
+ExecStop=/usr/bin/docker stop -t2 RoomIT
+
+[Install]
+WantedBy=default.target
+

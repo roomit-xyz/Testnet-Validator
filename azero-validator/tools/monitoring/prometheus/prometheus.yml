@@ -1,0 +1,19 @@
+global:
+  scrape_interval: 1m # Set the scrape interval to every 15 seconds. Default is every 1 minute.
+  scrape_timeout: 1m
+  evaluation_interval: 30s # Evaluate rules every 15 seconds. The default is every 1 minute.
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          # - alertmanager:9093
+
+rule_files:
+
+scrape_configs:
+  - job_name: "azero-testnet"
+    metrics_path: '/metrics'
+    static_configs:
+            - targets: ["testnet-02.roomit.xyz:9615"]
+

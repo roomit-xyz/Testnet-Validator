@@ -1,0 +1,9 @@
+nginx-wss        9944/tcp
+nginx-rpc        9933/tcp
+azero-rpc        9931/tcp
+azero-wss        9941/tcp
+azero-com        30333/tcp
+azero-metrics    9615/tcp
+ssh-public       12920/tcp
+ssh-private      6969/tcp
+telegraf         9100/tcp

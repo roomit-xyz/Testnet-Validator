@@ -1,0 +1,202 @@
+#!/bin/bash
+
+
+export GOPATH="$(pwd)/lib"
+
+#### ENVIRONMENT
+HOME_VALIDATOR=`pwd`
+GOLANG_VERSION="1.19"
+VALIDATOR_ENVIRONMENT="gitopia-environment"
+APP="gitopiad"
+
+#### WALLET 
+HAVE_KEY="true"
+
+
+#### SNAPSHOT BLOCK
+ENABLE_SNAPSHOT="false"
+DATA_VALIDATOR=".gitopia" 
+SNAPSHOT_DATE="2022-11-15" #SNAPSHOT_DATE=`date +%Y-%m-%d`
+GENESIS_URL="https://server.gitopia.com/raw/gitopia/testnets/master/gitopia-janus-testnet-2/genesis.json.gz"
+ADDRESSBOOK_URL="https://snapshots.kjnodes.com/gitopia-testnet/addrbook.json"
+SNAPSHOT_BLOCK_URL="https://snapshots2-testnet.nodejumper.io/okp4-testnet/okp4-nemeton_${SNAPSHOT_DATE}.tar.lz4"
+DATA_BLOCKCHAIN="/data/gitopia"
+
+
+echo "Install FHS"
+mkdir -p ${HOME_VALIDATOR}/tmp
+mkdir -p ${HOME_VALIDATOR}/lib
+mkdir -p ${HOME_VALIDATOR}/bin
+
+
+echo "Install golang ${GOLANG_VERSION}"
+cd ${HOME_VALIDATOR}/tmp
+if ! [ -f ${HOME_VALIDATOR}/.go/bin/go ]
+then
+wget "https://golang.org/dl/go${GOLANG_VERSION}.linux-amd64.tar.gz"
+tar xvf go${GOLANG_VERSION}.linux-amd64.tar.gz 
+mv go/ ${HOME_VALIDATOR}/.go
+rm -f ${HOME_VALIDATOR}/tmp/go${GOLANG_VERSION}.linux-amd64.tar.gz
+fi
+
+
+
+cd ${HOME_VALIDATOR}
+###### ENV GO LANG
+if ! [ -f ${HOME_VALIDATOR}/${VALIDATOR_ENVIRONMENT} ]
+then
+echo "Install Environment"
+cat > ${VALIDATOR_ENVIRONMENT} <<EOF 
+HOME_VALIDATOR="`pwd`"
+APP_VERSION="v0.6.0"
+VALIDATOR_NAME=RoomIT
+CHAIN_ID=gitopia-janus-testnet-2
+KEY_NAME=roomit
+UNIT_COIN="utlore"
+AMOUNT="100000${UNIT_COIN}"
+STAKING_AMOUNT="100000${UNIT_COIN}"
+GOBIN="\$HOME_VALIDATOR/.go/bin"
+GOPATH="\$HOME_VALIDATOR/lib/go";
+GOROOT="\$HOME_VALIDATOR/.go"
+APP_BIN="\$HOME_VALIDATOR/bin"
+export PATH="\$PATH:\$GOBIN:\$GOPATH:\$GOROOT:\$APP_BIN"
+EOF
+fi
+
+echo "Install Validator"
+source ${VALIDATOR_ENVIRONMENT}
+cd ${HOME_VALIDATOR}/tmp
+curl https://get.gitopia.com | sudo bash
+git clone -b v1.2.0 gitopia://gitopia/gitopia
+cd gitopia
+make install
+cp ${HOME_VALIDATOR}/lib/go/bin/gitopiad ${HOME_VALIDATOR}/bin
+
+
+
+
+function Add:Peer(){
+echo "ADD PEER"
+source ${VALIDATOR_ENVIRONMENT}
+sed -i.bak -e "s/^minimum-gas-prices *=.*/minimum-gas-prices = \"0.001${UNIT_COIN}\"/;" ${HOME_VALIDATOR}/${DATA_VALIDATOR}/config/app.toml
+#peers=""
+#sed -i 's|^persistent_peers *=.*|persistent_peers = "'$peers'"|' ${HOME_VALIDATOR}/${DATA_VALIDATOR}/config/config.toml
+seeds="399d4e19186577b04c23296c4f7ecc53e61080cb@seed.gitopia.com:26656"
+sed -i.bak -e "s/^seeds =.*/seeds = \"$seeds\"/" ${HOME_VALIDATOR}/${DATA_VALIDATOR}/config/config.toml
+}
+
+echo "Deploy APP"
+cd ${HOME_VALIDATOR}/
+source ${VALIDATOR_ENVIRONMENT}
+
+function Download:Genesis(){
+   cd ${HOME_VALIDATOR}/
+   source ${VALIDATOR_ENVIRONMENT}
+   wget -qO ${HOME_VALIDATOR}/${DATA_VALIDATOR}/config/genesis.json ${GENESIS_URL}
+   wget -O ${HOME_VALIDATOR}/${DATA_VALIDATOR}/config/addrbook.json ${ADDRESSBOOK_URL}
+}
+
+function Change:Config(){
+   cd ${HOME_VALIDATOR}/
+   source ${VALIDATOR_ENVIRONMENT}
+   pruning="custom"
+   pruning_keep_recent="100"
+   pruning_keep_every="0"
+   pruning_interval="10"
+   sed -i -e "s/^pruning *=.*/pruning = \"$pruning\"/" ${HOME_VALIDATOR}/${DATA_VALIDATOR}/config/app.toml
+   sed -i -e "s/^pruning-keep-recent *=.*/pruning-keep-recent = \"$pruning_keep_recent\"/" ${HOME_VALIDATOR}/${DATA_VALIDATOR}/config/app.toml
+   sed -i -e "s/^pruning-keep-every *=.*/pruning-keep-every = \"$pruning_keep_every\"/" ${HOME_VALIDATOR}/${DATA_VALIDATOR}/config/app.toml
+   sed -i -e "s/^pruning-interval *=.*/pruning-interval = \"$pruning_interval\"/" ${HOME_VALIDATOR}/${DATA_VALIDATOR}/config/app.toml
+   sed -i -e "s/^indexer *=.*/indexer = \"$indexer\"/" ${HOME_VALIDATOR}/${DATA_VALIDATOR}/config/config.toml
+}
+
+
+
+
+cd ${HOME_VALIDATOR}/
+source ${VALIDATOR_ENVIRONMENT}
+
+if [ "${HAVE_KEY}" == "true" ]
+then 
+   ${APP} config chain-id ${CHAIN_ID} --home ${DATA_VALIDATOR}
+   ${APP} config keyring-backend test --home ${DATA_VALIDATOR}
+   ${APP} config node tcp://localhost:41657 --home ${DATA_VALIDATOR}
+   ${APP} init ${VALIDATOR_NAME} --chain-id ${CHAIN_ID} --home ${DATA_VALIDATOR}
+   Download:Genesis;
+   Change:Config
+   ${APP} keys add ${KEY_NAME} --recover --home ${DATA_VALIDATOR}
+
+else
+   ${APP} config chain-id ${CHAIN_ID} --home ${DATA_VALIDATOR}
+   ${APP} config keyring-backend test --home ${DATA_VALIDATOR}
+   ${APP} config node tcp://localhost:41657 --home ${DATA_VALIDATOR}
+   ${APP} init ${VALIDATOR_NAME} --chain-id ${CHAIN_ID} --home ${DATA_VALIDATOR}
+   Download:Genesis;
+   Change:Config;
+   ${APP} keys add ${KEY_NAME} --keyring-backend test --home ${DATA_VALIDATOR}
+fi
+
+Add:Peer;
+
+function Reset:Validator(){
+  cd ${HOME_VALIDATOR}/
+  source ${VALIDATOR_ENVIRONMENT}
+  ${APP} tendermint unsafe-reset-all --home ${HOME_VALIDATOR}/${DATA_VALIDATOR} --keep-addr-book
+}
+
+cd ${HOME_VALIDATOR}/
+mkdir -p ${DATA_BLOCKCHAIN}/
+cp -rf ${HOME_VALIDATOR}/${DATA_VALIDATOR}/data ${DATA_BLOCKCHAIN}/
+mv ${HOME_VALIDATOR}/${DATA_VALIDATOR}/data ${HOME_VALIDATOR}/${DATA_VALIDATOR}/_data
+#Reset:Validator;
+ln -sf ${DATA_BLOCKCHAIN}/data ${HOME_VALIDATOR}/${DATA_VALIDATOR}/
+
+echo "Create Systemd"
+mkdir -p systemd
+cat > systemd/${APP}.service <<EOF
+[Unit]
+Description=${APP} Cosmos daemon
+After=network-online.target
+
+[Service]
+User=gneareth
+Group=gneareth
+EnvironmentFile=${HOME_VALIDATOR}/${VALIDATOR_ENVIRONMENT}
+ExecStart=$(which ${APP})  start --home ${HOME_VALIDATOR}/${DATA_VALIDATOR} 
+Restart=on-failure
+RestartSec=3
+LimitNOFILE=4096
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+echo "Install Systemd"
+sudo ln -sf ${HOME_VALIDATOR}/systemd/${APP}.service /etc/systemd/system/
+sudo systemctl stop ${APP}
+
+function Download:Install:Snapshot(){
+cd ${DATA_BLOCKCHAIN}
+curl  ${SNAPSHOT_BLOCK_URL}| lz4 -dc - | tar -xf - -C ${DATA_BLOCKCHAIN}/data/
+mv ${HOME_VALIDATOR}/${DATA_VALIDATOR}/_data/priv_validator_state.json ${HOME_VALIDATOR}/${DATA_VALIDATOR}/data/priv_validator_state.json
+}
+
+if [ "${ENABLE_SNAPSHOT}" == "true" ]
+then
+   Download:Install:Snapshot;
+else 
+   echo "Snapshot not deploy, Syncing Block Manual"
+fi
+
+echo "Running Service"
+sudo systemctl start ${APP}
+sudo systemctl status ${APP}
+
+echo "Become Validator, Stake Coin"
+echo "${APP} tx staking create-validator --home ${HOME_VALIDATOR}/${DATA_VALIDATOR} --amount=1000000${UNIT_COIN} --pubkey=\$(${APP} tendermint show-validator --home ${HOME_VALIDATOR}/${DATA_VALIDATOR}) --moniker=${VALIDATOR_NAME} --identity=B27109E258F7E0D7 --website="https://stake.roomit.xyz" --details="RoomIT | Reliable, Secure, Monitoring and Uptime" --chain-id=${CHAIN_ID} --commission-rate=0.1 --commission-max-rate=0.2 --commission-max-change-rate=0.01 --min-self-delegation=1000000 --from=${KEY_NAME}"
+echo ""
+echo "Delegate Validator"
+echo  "${APP} tx staking delegate YOUR_WALLET_PUBLIC_ADDRESS 2000000${UNIT_COIN} --chain-id ${CHAIN_ID} --fees=1${UNIT_COIN} --from ${KEY_NAME} --home ${HOME_VALIDATOR}/${DATA_VALIDATOR}"
+
+
+echo "Installation Finished"

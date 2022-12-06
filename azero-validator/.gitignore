@@ -1,0 +1,10 @@
+p2p_secret
+env/archivist.env
+env/validator.env
+chains/mainnet/*
+!chains/mainnet/.gitkeep
+chains/testnet/*
+!chains/testnet/.gitkeep
+chainspec.json
+testnet_chainspec.json
+

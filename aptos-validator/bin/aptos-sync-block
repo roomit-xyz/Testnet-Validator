@@ -1,0 +1,80 @@
+#!/bin/bash
+
+
+
+time_sleep=150
+container_name="aptos-roomit"
+
+while true
+do
+get_time=`date +%H:%M`
+
+echo "Iteration 1"
+get_pending_block_1=`curl 127.0.0.1:9101/metrics 2> /dev/null | grep '^aptos_consensus_num_blocks_in_tree' | awk '{print $2}'`
+iterations_1="${get_time}|${get_pending_block_1}"
+get_block_iteration_1=`echo ${iterations_1} | awk -F"|" '{print $2}'`
+get_block_synced_iteration_1=`curl 127.0.0.1:9101/metrics 2> /dev/null | grep 'aptos_state_sync_version{type="synced"}'|awk '{print $2}'`
+echo "${iterations_1}|${get_block_synced_iteration_1}"
+sleep ${time_sleep}
+
+echo "Iteration 2"
+get_pending_block_2=`curl 127.0.0.1:9101/metrics 2> /dev/null | grep '^aptos_consensus_num_blocks_in_tree' | awk '{print $2}'`
+iterations_2="${get_time}|${get_pending_block_2}"
+get_block_iteration_2=`echo ${iterations_2} | awk -F"|" '{print $2}'`
+get_block_synced_iteration_2=`curl 127.0.0.1:9101/metrics 2> /dev/null | grep 'aptos_state_sync_version{type="synced"}'|awk '{print $2}'`
+echo "${iterations_2}|${get_block_synced_iteration_2}"
+sleep ${time_sleep}
+
+echo "Iteration 3"
+get_pending_block_3=`curl 127.0.0.1:9101/metrics 2> /dev/null | grep '^aptos_consensus_num_blocks_in_tree' | awk '{print $2}'`
+iterations_3="${get_time}|${get_pending_block_3}"
+get_block_iteration_3=`echo ${iterations_3}| awk -F"|" '{print $2}'`
+get_block_synced_iteration_3=`curl 127.0.0.1:9101/metrics 2> /dev/null | grep 'aptos_state_sync_version{type="synced"}'|awk '{print $2}'`
+echo "${iterations_3}|${get_block_synced_iteration_3}"
+sleep ${time_sleep}
+
+echo "Iteration 4"
+get_pending_block_4=`curl 127.0.0.1:9101/metrics 2> /dev/null | grep '^aptos_consensus_num_blocks_in_tree' | awk '{print $2}'`
+iterations_4="${get_time}|${get_pending_block_4}"
+get_block_iteration_4=`echo ${iterations_4} | awk -F"|" '{print $2}'`
+get_block_synced_iteration_4=`curl 127.0.0.1:9101/metrics 2> /dev/null | grep 'aptos_state_sync_version{type="synced"}'|awk '{print $2}'`
+echo "${iterations_4}|${get_block_synced_iteration_4}"
+sleep ${time_sleep}
+
+
+
+if [ ${get_block_iteration_4} == ${get_block_iteration_3} ] && [ ${get_block_iteration_3} == ${get_block_iteration_2} ] 
+then 
+   if [ ${get_block_synced_iteration_4} == ${get_block_synced_iteration_3} ] && [ ${get_block_synced_iteration_3} == ${get_block_synced_iteration_2} ] 
+   then
+       echo "Block Not Syncing"
+       docker restart ${container_name}
+       /usr/local/bin/telegram-send --format text   "`hostname` - Block Aptos Not Syncing | Restart Service Aptos Already Done"
+       waiting_response=`echo "${time_sleep}*7.5" |bc`
+       sleep ${waiting_response}
+       get_block_synced_last=${get_block_synced_iteration_4}
+       check_block_current=`curl 127.0.0.1:9101/metrics 2> /dev/null | grep 'aptos_state_sync_version{type="synced"}'|awk '{print $2}'`
+       x=0
+       while [ ${check_block_current} == ${get_block_synced_last} ] 
+       do
+	   sleep 60
+	   echo "${get_time} | Still Waiting advertise running again"
+	   if [ ${x} == 15 ]
+           then 
+              docker restart ${container_name}
+	      break
+	   fi
+	   ((x++))
+       done
+   else
+       echo "Block OK"
+       /usr/local/bin/telegram-send --format text   "`hostname` - Block Aptos Synced | Block Pending Process Match"
+   fi
+else
+   echo "Block OK"
+   /usr/local/bin/telegram-send --format text   "`hostname` - Block Aptos Synced | Block Pending Process not Match"
+fi
+sleep ${time_sleep}
+
+
+done
