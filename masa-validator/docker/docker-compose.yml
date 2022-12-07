@@ -1,0 +1,76 @@
+# Masa Testnet Node v1.0
+
+version: "3.6"
+x-masa-testnet-node-v10-def:
+  &masa-testnet-node-v10-def
+  container_name: "masa-node-backend"
+  restart: "on-failure"
+  image: "${MASA_DOCKER_IMAGE:-quorumengineering/quorum:22.1}"
+  expose:
+    - "21000"
+    - "50400"
+  healthcheck:
+    test: ["CMD", "wget", "--spider", "--proxy", "off", "http://localhost:8545"]
+    interval: 3s
+    timeout: 3s
+    retries: 10
+    start_period: 5s
+  labels:
+    com.masa.consensus: ${MASA_CONSENSUS:-istanbul}
+  entrypoint:
+    - /bin/sh
+    - -c
+    - |
+      DDIR=/qdata/dd
+      GENESIS_FILE="/network/genesis.json"
+      CONSENSUS_RPC_API="istanbul"
+      NETWORK_ID=$$(cat $${GENESIS_FILE} | grep chainId | awk -F " " '{print $$2}' | awk -F "," '{print $$1}')
+      GETH_ARGS_istanbul="--emitcheckpoints --istanbul.blockperiod 10 --mine --miner.threads 1 --syncmode full"
+      if [ ! -f $${DDIR}/control_file ]; then
+        mkdir -p $${DDIR}/keystore
+        mkdir -p $${DDIR}/geth
+        geth --datadir $${DDIR} init $${GENESIS_FILE}
+        echo "Created $$(date)" > $${DDIR}/control_file
+      fi
+      geth \
+        --identity masa-01-roomit-node$${NODE_ID}-${MASA_CONSENSUS:-istanbul} \
+        --datadir $${DDIR} \
+        --bootnodes enode://34ae4026bf65bf968da99cc6010fa81ce5f5239ccfcd5e602ecdbea2dc1f6dfb7f840cb315f2eb63c1ecc1028e25de74a6a61314cb5a826876306890a9617ccf@142.93.109.105:21000,enode://6c6e61440c857587a7f1ff69acb415f8e9d3dc633fa3a031ce9f6190cb50b63c310634571f34ab721c59632dd4d5073ee073af8fc0d457f20886ddaa9ec55ac7@178.128.196.161:21000,enode://2d6723fabbb083e6217253fecbdbdfbec3925370c630e48be0f56902324ac69f9a16a1871406854f63941e15ee8d9cec45ec0753aa0bdb61b57433591fd43b42@104.248.23.154:21000,enode://55fca90d73303cd6771f49ac438b5c005401f1580ca05e6c66f74f6678066589c63f65dd15f09215cda5c7d4aa59b1ba24420a9896b4bd7b9480cd587245ad0c@139.177.197.173:21000,enode://5e60a6106db8c2d23545a67f6c0aec85916640ba473dd332fff349ea7ba8da77219ff34e5350a8d6fe71b677c8bae51606aa318f6d616aefe42e4d8d466a9e0a@50.116.36.102:21000,enode://ef96950807d90cf210113062e9a8c85b865877c83d1ef8480fa53ae3099e64a910c0b17ffa5eee1eb25046fa6d31b527a38bd709ffdf6e76a0572a661a6f454d@167.99.136.206:21000,enode://75632f64ea8e00374fe6ef43d9ab5ea51ac3fce92e786caea231d9ca084e9b78c2d9b500a98f317802015a81551e5f55020cb0f24e20ab9027df22f6ecb6b5fb@157.230.104.54:21000,enode://77201d47bc33d682c0fc39959786317e99710c236245ab6ad54409d6deda39b3aaa4cef5bddac1b9a2fd9d49e0d4e9575c84a0a32b724f96ba9a79a2a1de1caa@142.93.109.105:21000,enode://8f9e4d894bed72ab811d3f15d34eb6b9e527f7b9071ac71e2d260770359b1ae3ee0662100cf23943eb3348f769c672f4184c637c2c7eb33fa893927996e9e6b5@164.92.201.208:21000,enode://29c77a37c375f09b1c14e3f11a6e8143f60a809a145e0492ba03a01c1882d2acc04e2abeb642c336d60af879a4996b5c4aa8a39c99be307e6736ea60239f77d4@164.92.172.206:21000,enode://373c58f32293d7d876d2b481e4ef1268557715858cfc72413be6e5ad47efd4f4d15713564dc32ca3fe56787202c406cc681b88122ae4fe496f1d48e02c3f3bc0@138.68.78.230:21000,enode://c04e30e494cc946b83cd77be4de34daaea34241109adf0821c2d44064fc68af91e27a91b3a577a1051154381f6b3f595159d4a3f039e4f8a7a0f7b3ccd12d566@142.93.105.106:21000,enode://9dbd1f8478c1f03d5c325144cc2dbefbfa926397e86ce11dcaab0e52edb9cc1688db992d493a3ea7f592690ec33a1338f1da0282f1dbe1f6683e1be0012344aa@170.187.185.45:21000,enode://00e23b08adaf22da92475e8334bad7d605a2a5d02911715a04816d07a592e12d51a6ec285a328453d7da00f91119aae0fe830511af0f34244ab0ce2fd9dbc3a7@207.154.254.172:21000,enode://d97e638f8c7d1bb22cebba3e16985f2c5e92104db83cc5c743912f5eb88824d55544982245dd92019e0efa9befe572f37130d2e6b17cc5c464177c5a54f470a9@167.235.28.189:30300,enode://a776f201991b5ae0428bbc3676572a5dba8120fde282c0de917d8e4776330e4eca2033fb55696cac700e5d88e24c8e9e739cf004cbd1fc33638742fdeb4256eb@130.255.170.151:21000,enode://69b0339d0e7c295d1cf1de54540b921b8c63a25314ea7e5f58daf1ea850e4539890cc6e22c0427b3204cbdcbadcb69087beb279100ebb4511649f0fbfb6c3780@46.101.73.148:30300,enode://269ecefca0b4cd09bf959c2029b2c2caf76b34289eb6717d735ce4ca49fbafa91de8182dd701171739a8eaa5d043dcae16aee212fe5fadf9ed8fa6a24a56951c@65.108.72.177:21000,enode://fcb5a1a8d65eb167cd3030ca9ae35aa8e290b9add3eb46481d0fbd1eb10065aeea40059f48314c88816aab2af9303e193becc511b1035c9fd8dbe97d21f913b9@52.1.125.71:21000,enode://91a3c3d5e76b0acf05d9abddee959f1bcbc7c91537d2629288a9edd7a3df90acaa46ffba0e0e5d49a20598e0960ac458d76eb8fa92a1d64938c0a3a3d60f8be4@54.158.188.182:21000,enode://ac6b1096ca56b9f6d004b779ae3728bf83f8e22453404cc3cef16a3d9b96608bc67c4b30db88e0a5a6c6390213f7acbe1153ff6d23ce57380104288ae19373ef@54.146.254.245:21000,enode://66a2cf69e25f68438988cdde23d962722db7f2ce3e792ff25f5f0a94ba0423f5618f91b7c749141b3ebe40dd1d28476e9f42612fe74091249993130dcf245376@138.201.155.226:21000,enode://b559beaaac0c121122dec1f287be0722746ab4bcb68ac1ad2de70b1d50a801e4d1fb3102f41f27a9a396fa8a0aca8d116099141369301eb8e1ddd8b37cf2c2b4@138.201.91.105:21000,enode://843ec5c9d67d5a849722eb2a4ffd062f3b298b670412b8ae29cb0ddb137f706de773ab8ec62197a7bd58a93612c0b0bd15261b7235b2183c1837752057b1051b@95.217.211.32:21000,enode://1fb35ec2ebc538c3e09bfa58cbb6857c9c7c35309fb44dc24850b53c8f34387b70ef053bb9bc8ba26c79dd8f1d5f85189cd8c20c9c28f0923363dd8823a857a0@92.63.101.152:30300,enode://f719d999da85e86f2bfee836d00cee216d55aa9e3b98b691cbf91b190b536b68732ba9fc7df1607bfabec53a784682af5b862f42289cf370cf69f3c9a1ce06bf@185.185.83.23:30300,enode://7612454dd41a6d13138b565a9e14a35bef4804204d92e751cfe2625648666b703525d821f34ffc198fac0d669a12d5f47e7cf15de4ebe65f39822a2523a576c4@81.29.137.40:30300,enode://ac6b1096ca56b9f6d004b779ae3728bf83f8e22453404cc3cef16a3d9b96608bc67c4b30db88e0a5a6c6390213f7acbe1153ff6d23ce57380104288ae19373ef@54.146.254.245:21000 \
+        --verbosity 5 \
+        --networkid $${NETWORK_ID} \
+        --http \
+        --http.corsdomain "*" \
+        --http.vhosts "*" \
+        --http.addr 0.0.0.0 \
+        --http.port 8545 \
+        --http.api admin,eth,debug,miner,net,shh,txpool,personal,web3,quorum,$${CONSENSUS_RPC_API} \
+        --port 21000 \
+        --nousb \
+        ${MASA_GETH_ARGS:-} $${GETH_ARGS_${MASA_CONSENSUS:-istanbul}}
+services:
+  ui:
+    extends:
+      file: ./ui/docker-compose-ui.yml
+      service: ui
+  masa-node:
+    << : *masa-testnet-node-v10-def
+    hostname: masa-node
+    ports:
+      - "22001:8545"
+    volumes:
+      - ./masa-storage/vol-01:/qdata
+      - ./network/testnet:/network:ro
+    environment:
+      - PRIVATE_CONFIG=${PRIVATE_CONFIG:-/qdata/tm/tm.ipc}
+      - NODE_ID=1
+    networks:
+      masa-testnet:
+        ipv4_address: 172.16.240.20
+networks:
+  masa-testnet:
+    name: masa-testnet
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+      - subnet: 172.16.240.0/24
